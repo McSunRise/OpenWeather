@@ -1,0 +1,72 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    environment: ci
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python 3.13
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.13
+
+    - name: Create SECRET_KEY
+      run: echo "${{ secrets.SECRET_KEY }}" > private.pem
+
+    - name: Create .env file
+      run: |
+        echo "DB_ENGINE=${{ secrets.DB_ENGINE }}" >> .env
+        echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
+        echo "DB_USER=${{ secrets.DB_USER }}" >> .env
+        echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
+        echo "DB_HOST=${{ secrets.DB_HOST }}" >> .env
+        echo "DB_PORT=${{ secrets.DB_PORT }}" >> .env
+
+        echo "REDIS_USER=${{ secrets.REDIS_USER }}" >> .env
+        echo "REDIS_USER_PASSWORD=${{ secrets.REDIS_USER_PASSWORD }}" >> .env
+        echo "REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}" >> .env
+        echo "REDIS_HOST=${{ secrets.REDIS_HOST }}" >> .env
+        echo "REDIS_PORT=${{ secrets.REDIS_PORT }}" >> .env
+        
+        echo "DEBUG=${{ secrets.DEBUG }}" >> .env
+        echo "DJANGO_LOGLEVEL=${{ secrets.DJANGO_LOGLEVEL }}" >> .env
+        echo "DJANGO_ALLOWED_HOSTS=${{ secrets.DJANGO_ALLOWED_HOSTS }}" >> .env
+        
+        echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >> .env
+        
+        echo "Current .env content:"
+        cat .env
+
+    - name: Install Docker Compose
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y docker-compose
+
+    - name: Build Docker Compose services
+      run: |
+        docker compose config
+        docker compose up --build -d
+        sleep 10
+        docker compose logs db
+        docker compose ps -a
+
+    - name: Run tests with Docker Compose
+      run: docker compose run --rm django-web python manage.py test
+
+    - name: Debug Docker Logs
+      if: failure()
+      run: docker-compose logs
+
+    - name: Tear down Docker Compose
+      if: always()
+      run: docker compose down
