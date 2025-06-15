@@ -1,10 +1,10 @@
 name: CI Pipeline
 
 on:
-  push:
-    branches: [master]
   pull_request:
-    branches: [master]
+    branches:
+      - master
+      - dev
 
 jobs:
   build-test:
@@ -19,6 +19,9 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: 3.13
+
+    - name: Create logs directory
+      run: mkdir -p logs && chmod 777 logs
 
     - name: Create SECRET_KEY
       run: echo "${{ secrets.SECRET_KEY }}" > private.pem
