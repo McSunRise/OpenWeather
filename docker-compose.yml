@@ -59,6 +59,8 @@ services:
         condition: service_healthy
       cache:
         condition: service_healthy
+    volumes:
+      - ./logs:/app/logs
     environment:
       DEBUG: ${DEBUG}
       DJANGO_LOGLEVEL: ${DJANGO_LOGLEVEL}
