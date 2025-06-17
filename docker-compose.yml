@@ -49,6 +49,20 @@ services:
       timeout: 3s
       retries: 5
 
+  dist-task:
+    build: .
+    command: celery -A weatherproject worker --loglevel=info
+    depends_on:
+      - cache
+    environment:
+      CELERY_BROKER_URL: redis://${REDIS_HOST}:${REDIS_PORT}/0
+      CELERY_RESULT_BACKEND: redis://${REDIS_HOST}:${REDIS_PORT}/0
+    healthcheck:
+      test: [ "CMD", "celery", "-A", "weatherproject", "status"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   django-web:
     build: .
     container_name: django-docker
@@ -58,6 +72,8 @@ services:
       db:
         condition: service_healthy
       cache:
+        condition: service_healthy
+      dist-task:
         condition: service_healthy
     volumes:
       - ./logs:/app/logs
