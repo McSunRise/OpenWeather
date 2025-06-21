@@ -6,7 +6,7 @@ RUN mkdir /app
 
 WORKDIR /app
 
-RUN mkdir -p logs
+RUN mkdir -p logs && chmod 666 logs
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
