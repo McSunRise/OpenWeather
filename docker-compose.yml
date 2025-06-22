@@ -8,7 +8,7 @@ services:
     env_file:
       - .env
     healthcheck:
-      test: [ "CMD", "pg_isready", "-U", "${DB_USER}" ]
+      test: [ "CMD", "pg_isready", "-U", "${POSTGRES_USER}", "-d", "${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -19,26 +19,33 @@ services:
       - .env
     ports:
       - "6379:6379"
-    deploy:
-      resources:
-        limits:
-          cpus: '0.50'
-          memory: 512M
-        reservations:
-          cpus: '0.25'
-          memory: 256M
-    command: >
-      sh -c '
-        mkdir -p /usr/local/etc/redis &&
-        echo "bind 0.0.0.0" > /usr/local/etc/redis/redis.conf &&
-        echo "appendonly yes" >> /usr/local/etc/redis/redis.conf &&
-        echo "appendfsync everysec" >> /usr/local/etc/redis/redis.conf &&
-        echo "user default on nopass ~* +@all" > /usr/local/etc/redis/users.acl &&
-        echo "user $REDIS_USER on >$REDIS_USER_PASSWORD ~* +@all" >> /usr/local/etc/redis/users.acl &&
-        redis-server /usr/local/etc/redis/redis.conf --aclfile /usr/local/etc/redis/users.acl
-      '
+    command: sh -c "
+      mkdir -p /usr/local/etc/redis && \
+      echo 'user default off' > /usr/local/etc/redis/redis.acl && \
+      echo \"user admin on >$REDIS_ADMIN_PASSWORD ~* &* +@all\" >> /usr/local/etc/redis/redis.acl && \
+      echo \"user $REDIS_USER on >$REDIS_USER_PASSWORD ~* &* +@pubsub +@connection +@transaction +@set +@scripting +@read +@write\" >> /usr/local/etc/redis/redis.acl && \
+      redis-server --aclfile /usr/local/etc/redis/redis.acl
+      "
+    volumes:
+      - redis_data:/data
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  dist-task:
+    build: .
+    command: celery -A weatherproject.celery worker --loglevel=info
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+    env_file:
+      - .env
+    healthcheck:
+      test: [ "CMD", "celery", "-A", "weatherproject", "status"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -53,6 +60,8 @@ services:
         condition: service_healthy
       cache:
         condition: service_healthy
+      dist-task:
+        condition: service_healthy
     volumes:
       - ./logs:/app/logs
     env_file:
@@ -65,3 +74,4 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:

@@ -41,7 +41,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'weatherapp',
-    'adrf'
+    'adrf',
+    'celery'
 ]
 
 MIDDLEWARE = [
@@ -90,11 +91,11 @@ REST_FRAMEWORK = {
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('DB_NAME'),
+        'NAME': os.environ.get('POSTGRES_DB'),
         'HOST': os.environ.get('DB_HOST'),
         'PORT': os.environ.get('DB_PORT'),
-        'USER': os.environ.get('DB_USER'),
-        'PASSWORD': os.environ.get('DB_PASSWORD')
+        'USER': os.environ.get('POSTGRES_USER'),
+        'PASSWORD': os.environ.get('POSTGRES_PASSWORD')
     }
 }
 
@@ -102,7 +103,7 @@ DATABASES = {
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-        'LOCATION': f'redis://{os.environ.get("REDIS_HOST")}:{os.environ.get("REDIS_PORT")}'
+        'LOCATION': f'redis://{os.environ.get("REDIS_USER")}:{os.environ.get("REDIS_USER_PASSWORD")}@{os.environ.get("REDIS_HOST")}:{os.environ.get("REDIS_PORT")}'
     }
 }
 
@@ -117,10 +118,18 @@ LOGGING = {
         }
     },
     'handlers': {
-        'file': {
+        'django_file': {
             'level': 'INFO',
             'class': 'logging.handlers.RotatingFileHandler',
             'filename': 'logs/django.log',
+            'formatter': 'verbose',
+            'backupCount': 5,
+            'maxBytes': 1024*1024*5
+        },
+        'celery_file': {
+            'level': 'INFO',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': 'logs/celery.log',
             'formatter': 'verbose',
             'backupCount': 5,
             'maxBytes': 1024*1024*5
@@ -128,11 +137,19 @@ LOGGING = {
     },
     'loggers': {
         'django': {
-            'handlers': ['file'],
+            'handlers': ['django_file'],
             'propagate': True
+        },
+        'celery': {
+            'handlers': ['celery_file'],
+            'propagate': True,
         }
     }
 }
+
+# Celery
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL")
+CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND")
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
