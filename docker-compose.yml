@@ -19,23 +19,15 @@ services:
       - .env
     ports:
       - "6379:6379"
-    deploy:
-      resources:
-        limits:
-          cpus: '0.50'
-          memory: 512M
-        reservations:
-          cpus: '0.25'
-          memory: 256M
-    volumes:
-      - ./redis.acl:/usr/local/etc/redis/redis.acl
     command: sh -c "
+      mkdir -p /usr/local/etc/redis && \
       echo 'user default off' > /usr/local/etc/redis/redis.acl && \
       echo \"user admin on >$REDIS_ADMIN_PASSWORD ~* &* +@all\" >> /usr/local/etc/redis/redis.acl && \
       echo \"user $REDIS_USER on >$REDIS_USER_PASSWORD ~* &* +@pubsub +@connection +@transaction +@set +@scripting +@read +@write\" >> /usr/local/etc/redis/redis.acl && \
       redis-server --aclfile /usr/local/etc/redis/redis.acl
       "
-
+    volumes:
+      - redis_data:/data
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 5s
@@ -82,3 +74,4 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:

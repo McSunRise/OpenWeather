@@ -6,7 +6,7 @@ RUN mkdir /app
 
 WORKDIR /app
 
-RUN mkdir -p logs
+RUN mkdir -p logs && chmod 777 logs
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
@@ -19,7 +19,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # For prod stage
 
-FROM python:3.13-slim
+FROM python:3.13-slim AS production
 
 RUN useradd -m -r appuser && \
     mkdir /app && \
