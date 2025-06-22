@@ -1,10 +1,6 @@
 services:
   db:
     image: postgres:17
-    environment:
-      POSTGRES_DB: ${DB_NAME}
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "5432:5432"
     volumes:
@@ -12,17 +8,15 @@ services:
     env_file:
       - .env
     healthcheck:
-      test: [ "CMD", "pg_isready", "-U", "${DB_USER}" ]
+      test: [ "CMD", "pg_isready", "-U", "${POSTGRES_USER}", "-d", "${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10
 
   cache:
     image: redis:latest
-    environment:
-      REDIS_PASSWORD: ${REDIS_PASSWORD}
-      REDIS_USER: ${REDIS_USER}
-      REDIS_USER_PASSWORD: ${REDIS_USER_PASSWORD}
+    env_file:
+      - .env
     ports:
       - "6379:6379"
     deploy:
@@ -33,16 +27,15 @@ services:
         reservations:
           cpus: '0.25'
           memory: 256M
-    command: >
-      sh -c '
-        mkdir -p /usr/local/etc/redis &&
-        echo "bind 0.0.0.0" > /usr/local/etc/redis/redis.conf &&
-        echo "appendonly yes" >> /usr/local/etc/redis/redis.conf &&
-        echo "appendfsync everysec" >> /usr/local/etc/redis/redis.conf &&
-        echo "user default on nopass ~* +@all" > /usr/local/etc/redis/users.acl &&
-        echo "user $REDIS_USER on >$REDIS_USER_PASSWORD ~* +@all" >> /usr/local/etc/redis/users.acl &&
-        redis-server /usr/local/etc/redis/redis.conf --aclfile /usr/local/etc/redis/users.acl
-      '
+    volumes:
+      - ./redis.acl:/usr/local/etc/redis/redis.acl
+    command: sh -c "
+      echo 'user default off' > /usr/local/etc/redis/redis.acl && \
+      echo \"user admin on >$REDIS_ADMIN_PASSWORD ~* &* +@all\" >> /usr/local/etc/redis/redis.acl && \
+      echo \"user $REDIS_USER on >$REDIS_USER_PASSWORD ~* &* +@pubsub +@connection +@transaction +@set +@scripting +@read +@write\" >> /usr/local/etc/redis/redis.acl && \
+      redis-server --aclfile /usr/local/etc/redis/redis.acl
+      "
+
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 5s
@@ -51,12 +44,14 @@ services:
 
   dist-task:
     build: .
-    command: celery -A weatherproject worker --loglevel=info
+    command: celery -A weatherproject.celery worker --loglevel=info
     depends_on:
-      - cache
-    environment:
-      CELERY_BROKER_URL: redis://${REDIS_HOST}:${REDIS_PORT}/0
-      CELERY_RESULT_BACKEND: redis://${REDIS_HOST}:${REDIS_PORT}/0
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+    env_file:
+      - .env
     healthcheck:
       test: [ "CMD", "celery", "-A", "weatherproject", "status"]
       interval: 5s
@@ -77,25 +72,6 @@ services:
         condition: service_healthy
     volumes:
       - ./logs:/app/logs
-    environment:
-      DEBUG: ${DEBUG}
-      DJANGO_LOGLEVEL: ${DJANGO_LOGLEVEL}
-      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS}
-
-      DB_ENGINE: ${DB_ENGINE}
-      DB_NAME: ${DB_NAME}
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_HOST: ${DB_HOST}
-      DB_PORT: ${DB_PORT}
-
-      REDIS_USER: ${REDIS_USER}
-      REDIS_USER_PASSWORD: ${REDIS_USER_PASSWORD}
-      REDIS_PASSWORD: ${REDIS_PASSWORD}
-      REDIS_HOST: ${REDIS_HOST}
-      REDIS_PORT: ${REDIS_PORT}
-
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     env_file:
       - .env
     healthcheck:
