@@ -8,6 +8,13 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'weatherproject.settings')
 app = Celery("weather_celery")
 
 app.config_from_object('django.conf:settings', namespace='CELERY')
+app.conf.update(
+    task_serializer='json',
+    result_serializer='json',
+    accept_content=['json'],
+    timezone='UTC',
+    enable_utc=True
+)
 
 app.autodiscover_tasks(lambda: settings.INSTALLED_APPS)
 
