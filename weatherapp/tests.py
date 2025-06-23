@@ -1,8 +1,9 @@
 from django.core.cache import cache
 from django.test import TestCase
 from django.core.cache.backends.base import InvalidCacheBackendError
-from weatherproject.celery import divide
+from weatherproject.celery import *
 import os
+import json
 import time
 import logging
 
@@ -39,5 +40,24 @@ class CeleryTest(TestCase):
         except AssertionError as exc:
             self.fail(exc)
 
+    def test_weather(self):
+        if not os.environ.get("WEATHER_KEY"):
+            self.skipTest('API key not provided')
+        result = get_weather.delay('Moscow')
+        self.assertFalse(result.ready(), 'Task result is ready (cannot be instant)')
+        time.sleep(1)
+        self.assertTrue(result.ready(), 'Task is not ready in 1s')
+        try:
+            data = json.loads(result.get())
+        except json.JSONDecodeError:
+            self.fail('Response isn\'t correct JSON')
 
+        if "cod" in data:
+            if isinstance(data["cod"], int) and data["cod"] != 200:
+                self.fail(f"API вернул ошибку: {data.get('message', 'Unknown error')}")
+
+        self.assertIn("weather", data, "No key 'weather' available")
+        self.assertIsInstance(data["weather"], list, "'weather' must be a list")
+        self.assertIn("main", data, "No key 'main' available")
+        self.assertIn("temp", data["main"], "No key 'main.temp' available")
 
