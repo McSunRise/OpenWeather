@@ -103,7 +103,8 @@ DATABASES = {
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-        'LOCATION': f'redis://{os.environ.get("REDIS_USER")}:{os.environ.get("REDIS_USER_PASSWORD")}@{os.environ.get("REDIS_HOST")}:{os.environ.get("REDIS_PORT")}'
+        'LOCATION': f'redis://{os.environ.get("REDIS_USER")}:{os.environ.get("REDIS_USER_PASSWORD")}'
+                    f'@{os.environ.get("REDIS_HOST")}:{os.environ.get("REDIS_PORT")}/2'
     }
 }
 
@@ -150,6 +151,9 @@ LOGGING = {
 # Celery
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL")
 CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND")
+CELERY_TASK_IGNORE_RESULT = False
+CELERY_RESULT_PERSISTENT = True
+CELERY_RESULT_EXPIRES = 60*10
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
